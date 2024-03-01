@@ -1,20 +1,24 @@
-include "root" {
-  path = find_in_parent_folders("terragrunt.hcl")
+# include "root" {
+#   path = find_in_parent_folders("terragrunt.hcl")
+# }
+
+# include "environment" {
+#   path = "${get_terragrunt_dir()}/../../_common/storage.hcl"
+
+# }
+
+# Include root configuration file
+terraform {
+  required_version = "~> 0.12"
+  backend "s3" {
+    bucket         = "dev-tfstate-bucket"
+    key            = "terraform/terraform.tfstate"
+    region         = "ap-south-1"
+    dynamodb_table = "terraform_locks"
+  }
 }
 
+# Include environment configuration file
 include "environment" {
-  path = "${get_terragrunt_dir()}/../../_common/storage.hcl"
-# This section will be enabled after final code is pushed and tagged
-#  expose = true
+  path = "../_common/storage.tf"
 }
-
-# This section will be enabled after final code is pushed and tagged
-# terraform {
-#   source = "${include.environment.locals.source_base_url}?ref=v1.0.0"
-# }
-
-# module specific inputs
-# inputs = {
-#   var1 = "value1"
-#   var2 = "value2"
-# }

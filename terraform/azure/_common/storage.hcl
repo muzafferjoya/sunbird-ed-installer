@@ -1,25 +1,47 @@
+# locals {
+ 
+#   environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
+#   environment = local.environment_vars.locals.environment
+#   building_block = local.environment_vars.locals.building_block
+# }
+
+# # For local development
+# terraform {
+#   source = "../../modules//storage/"
+# }
+
+# dependency "network" {
+#     config_path = "../network"
+#     mock_outputs = {
+#       resource_group_name = "dummy-rg"
+#     }
+# }
+
+# inputs = {
+#   environment                 = local.environment
+#   building_block      = local.building_block
+#   resource_group_name = dependency.network.outputs.resource_group_name
+# }
+
 locals {
-  # This section will be enabled after final code is pushed and tagged
-  # source_base_url = "github.com/<org>/modules.git//app"
   environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
-  environment = local.environment_vars.locals.environment
-  building_block = local.environment_vars.locals.building_block
+  environment      = local.environment_vars.locals.environment
+  building_block   = local.environment_vars.locals.building_block
 }
 
-# For local development
 terraform {
-  source = "../../modules//storage/"
+  source = "../../modules//storage/"  # Adjust the source to your AWS S3 module path
 }
 
 dependency "network" {
-    config_path = "../network"
+    config_path = "../network"  # Adjust the config path to your AWS VPC module path
     mock_outputs = {
-      resource_group_name = "dummy-rg"
+      vpc_id = "dummy-vpc"
     }
 }
 
 inputs = {
-  environment                 = local.environment
-  building_block      = local.building_block
-  resource_group_name = dependency.network.outputs.resource_group_name
+  environment        = local.environment
+  building_block     = local.building_block
+  vpc_id             = dependency.vpc.outputs.vpc_id
 }

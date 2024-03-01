@@ -2,6 +2,6 @@
 locals {
   building_block = "ed"          # building block name
   env            = "dev"         # don't change this value
-  environment    = "REPLACE_ME"  # use lowercase alphanumeric string between 1-9 characters
-  random_string  = "REPLACE_ME"  # use lowercase alphanumeric string between 12-24 characters
+  environment    = "dev"  # use lowercase alphanumeric string between 1-9 characters
+  random_string  = "YRtfCfLtMxFitN"  # use lowercase alphanumeric string between 12-24 characters
 }

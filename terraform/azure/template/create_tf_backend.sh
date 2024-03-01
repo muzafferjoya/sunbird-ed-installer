@@ -2,24 +2,29 @@
 set -euo pipefail
 
 environment=$1
-ID=$(az account show | jq -r .tenantId | cut -d '-' -f1)
-RESOURCE_GROUP_NAME=${environment}tfstate
-STORAGE_ACCOUNT_NAME=${environment}tfstate$ID
-CONTAINER_NAME=${environment}tfstate
+AWS_REGION="ap-south-1"
 
-# Create resource group
-az group create --name $RESOURCE_GROUP_NAME --location eastus2
+# Define names for resources
+BUCKET_NAME="${environment}-tfstate-bucket"
+DYNAMODB_TABLE_NAME="${environment}-tfstate-lock"
 
-# Create storage account
-az storage account create --resource-group $RESOURCE_GROUP_NAME --name $STORAGE_ACCOUNT_NAME --sku Standard_LRS --encryption-services blob
+# Create S3 bucket
+aws s3api create-bucket --bucket $BUCKET_NAME --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION
 
-# Create blob container
-az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME
+# Enable versioning on S3 bucket
+aws s3api put-bucket-versioning --bucket $BUCKET_NAME --versioning-configuration Status=Enabled
 
-echo "export AZURE_TERRAFORM_BACKEND_RG=$RESOURCE_GROUP_NAME" > tf.sh
-echo "export AZURE_TERRAFORM_BACKEND_STORAGE_ACCOUNT=$STORAGE_ACCOUNT_NAME" >> tf.sh
-echo "export AZURE_TERRAFORM_BACKEND_CONTAINER=$CONTAINER_NAME" >> tf.sh
+# Create DynamoDB table for locking
+aws dynamodb create-table --table-name $DYNAMODB_TABLE_NAME --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --region $AWS_REGION
 
-echo -e "\nIf you need to run terraform commands manually, run the following command in your terminal to export the necessary environment variables"
+# Output Terraform backend configuration
+echo "terraform {
+  backend \"s3\" {
+    bucket         = \"$BUCKET_NAME\"
+    key            = \"$environment/terraform.tfstate\"
+    region         = \"$AWS_REGION\"
+    dynamodb_table = \"$DYNAMODB_TABLE_NAME\"
+  }
+}" > backend.tf
 
-echo "\nsource tf.sh"
+echo -e "\nTerraform backend configuration has been created."

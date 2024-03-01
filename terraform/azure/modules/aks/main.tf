@@ -1,104 +1,111 @@
-  provider "azurerm" {
-    features {}
+provider "aws" {
+  region = var.region
+}
+
+locals {
+  common_tags = {
+    environment   = var.environment
+    BuildingBlock = var.building_block
+  }
+  environment_name = "${var.building_block}-${var.environment}"
+}
+
+resource "aws_iam_user" "eks_user" {
+  name = local.environment_name
+}
+
+resource "aws_iam_access_key" "eks_access_key" {
+  user = aws_iam_user.eks_user.name
+}
+
+resource "aws_eks_cluster" "eks" {
+  name     = local.environment_name
+  role_arn = aws_iam_role.eks_role.arn
+
+  vpc_config {
+    subnet_ids = var.subnet_ids
   }
 
-  provider "azuread" {
+  tags = merge(local.common_tags, var.additional_tags)
+}
+
+resource "aws_eks_node_group" "small_nodepool" {
+  cluster_name    = aws_eks_cluster.eks.name
+  node_group_name = var.small_nodepool_name
+  node_role_arn   = aws_iam_role.node_role.arn
+
+  scaling_config {
+    desired_size = var.small_node_count
+    max_size     = var.max_small_nodepool_nodes
+    min_size     = 1
   }
 
-  locals {
-      common_tags = {
-        environment = "${var.environment}"
-        BuildingBlock = "${var.building_block}"
-      }
-      environment_name = "${var.building_block}-${var.environment}"
+  remote_access {
+    ec2_ssh_key = var.ec2_ssh_key
   }
 
-  resource "azuread_application" "aks_app" {
-    display_name    = local.environment_name
-  }
+  subnet_ids = var.subnet_ids
 
-  resource "azuread_service_principal" "aks_sp" {
-    client_id = azuread_application.aks_app.client_id
-  }
+  tags = merge(local.common_tags, var.additional_tags)
+}
 
-  resource "azuread_service_principal_password" "aks_sp_password" {
-    service_principal_id = azuread_service_principal.aks_sp.id
-    end_date_relative    = var.end_date_relative
-  }
-
-  resource "azurerm_role_assignment" "aks_sp_assignment" {
-    principal_id         = azuread_service_principal.aks_sp.id
-    scope                = var.vnet_subnet_id
-    role_definition_name = "Network Contributor"
-  }
-
-  resource "azurerm_kubernetes_cluster" "aks" {
-    name                = "${local.environment_name}"
-    location            = var.location
-    resource_group_name = var.resource_group_name
-    dns_prefix          = "${local.environment_name}"
-
-    default_node_pool {
-      name           = var.big_nodepool_name
-      node_count     = var.big_node_count
-      vm_size        = var.big_node_size
-      vnet_subnet_id = var.vnet_subnet_id
-      max_pods       = 250
+resource "aws_iam_role" "eks_role" {
+  name               = "eks-service-role"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "eks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
     }
+  ]
+}
+EOF
+}
 
-    network_profile {
-      network_plugin = var.network_plugin
-      service_cidr   = var.service_cidr
-      dns_service_ip = var.dns_service_ip
+resource "aws_iam_role_policy_attachment" "eks_policy_attachment" {
+  role       = aws_iam_role.eks_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+resource "aws_iam_role" "node_role" {
+  name               = "eks-node-role"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
     }
+  ]
+}
+EOF
+}
 
-    service_principal {
-      client_id     = azuread_application.aks_app.client_id
-      client_secret = azuread_service_principal_password.aks_sp_password.value
-    }
+resource "aws_iam_role_policy_attachment" "node_policy_attachment" {
+  role       = aws_iam_role.node_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+}
 
-    tags = merge(
-        local.common_tags,
-        var.additional_tags
-        )
-    depends_on = [ azurerm_role_assignment.aks_sp_assignment ]
-  }
+resource "aws_iam_role_policy_attachment" "node_cni_policy_attachment" {
+  role       = aws_iam_role.node_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+}
 
-  resource "azurerm_kubernetes_cluster_node_pool" "small_nodepool" {
-    name                  = var.small_nodepool_name
-    kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
-    vm_size               = var.small_node_size
-    node_count            = var.small_node_count
-    vnet_subnet_id        = var.vnet_subnet_id
-    mode                  = "System"
-    enable_auto_scaling   = true
-    min_count             = 1
-    max_count             = var.max_small_nodepool_nodes
-    tags = merge(
-        local.common_tags,
-        var.additional_tags
-        )
-    depends_on = [ azurerm_kubernetes_cluster.aks ]
-  }
-  resource "local_file" "kubeconfig" {
-    content      = azurerm_kubernetes_cluster.aks.kube_config_raw
-    filename     = pathexpand("~/.kube/config")
-    depends_on = [ azurerm_kubernetes_cluster.aks ]
-  }
+resource "aws_iam_role_policy_attachment" "node_ec2_policy_attachment" {
+  role       = aws_iam_role.node_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
 
-  # Pre-create private LB in future if ever there is an instance of private ip
-  # taken by node or some other service.
-  # Better option is to use lookup in charts where private ingress ip is required.
-
-  # resource "azurerm_lb" "private_lb" {
-  #   name                = "private-ilb"
-  #   resource_group_name = var.resource_group_name
-  #   location            = var.location
-  #   sku                 = "Standard"
-  #   frontend_ip_configuration {
-  #     name                          = "ilb-frontend-ip"
-  #     subnet_id                     = var.vnet_subnet_id
-  #     private_ip_address_allocation = "static"
-  #     private_ip_address            = var.private_ingressgateway_ip
-  #   }
-  # }
+resource "local_file" "kubeconfig" {
+  content  = aws_eks_cluster.eks.kubeconfig
+  filename = pathexpand("~/.kube/config")
+}
