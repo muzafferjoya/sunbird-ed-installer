@@ -21,11 +21,11 @@ resource "aws_s3_bucket" "storage_bucket" {
 }
 
 
-resource "aws_s3_bucket_acl" "storage_bucket_acl" {
-  bucket = aws_s3_bucket.storage_bucket.id
+# resource "aws_s3_bucket_acl" "storage_bucket_acl" {
+#   bucket = aws_s3_bucket.storage_bucket.id
 
-  acl = "private"
-}
+#   acl = "private"
+# }
 
 resource "aws_s3_bucket_cors_configuration" "storage_bucket_cors_configuration" {
   bucket = aws_s3_bucket.storage_bucket.id
