@@ -13,11 +13,26 @@
 # EOF
 # }
 
+# terraform {
+#   backend "s3" {
+#     bucket         = "template-tfstate-bucket"
+#     key            = "terraform/terraform.tfstate"
+#     region         = "us-east-1"
+#     dynamodb_table = "template-tfstate-lock"
+#   }
+# }
+
+
 terraform {
-  backend "s3" {
-    bucket         = "dev-tfstate-bucket"
+  source = "/home/ubuntu/sunbird-ed-installer/terraform/azure/modules/upload-files"
+}
+
+remote_state {
+  backend = "s3"
+  config = {
+    bucket         = "template-tfstate-bucket"
     key            = "terraform/terraform.tfstate"
-    region         = "ap-south-1"
-    dynamodb_table = "terraform_locks"
+    region         = "us-east-1"
+    dynamodb_table = "template-tfstate-lock"
   }
 }

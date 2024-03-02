@@ -25,7 +25,7 @@ function backup_configs() {
 
 function create_tf_resources() {
     source tf.sh
-    echo -e "\nCreating resources on azure cloud"
+    echo -e "\nCreating resources on aws cloud"
     terragrunt run-all apply --terragrunt-non-interactive
     chmod 600 ~/.kube/config
 }

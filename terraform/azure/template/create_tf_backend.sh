@@ -2,14 +2,15 @@
 set -euo pipefail
 
 environment=$1
-AWS_REGION="ap-south-1"
+AWS_REGION="us-east-1"
 
 # Define names for resources
 BUCKET_NAME="${environment}-tfstate-bucket"
 DYNAMODB_TABLE_NAME="${environment}-tfstate-lock"
 
 # Create S3 bucket
-aws s3api create-bucket --bucket $BUCKET_NAME --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION
+#aws s3api create-bucket --bucket $BUCKET_NAME --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION
+aws s3api create-bucket --bucket $BUCKET_NAME --region $AWS_REGION
 
 # Enable versioning on S3 bucket
 aws s3api put-bucket-versioning --bucket $BUCKET_NAME --versioning-configuration Status=Enabled

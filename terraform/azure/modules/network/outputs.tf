@@ -1,7 +1,7 @@
-output "resource_group_name" {
-  value = azurerm_resource_group.rg.name
+output "vpc_id" {
+  value = aws_vpc.main.id
 }
 
-output "aks_subnet_id" {
-  value = azurerm_subnet.aks_subnet.id
+output "subnet_ids" {
+  value = aws_subnet.subnets[*].id
 }

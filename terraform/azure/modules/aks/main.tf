@@ -104,8 +104,3 @@ resource "aws_iam_role_policy_attachment" "node_ec2_policy_attachment" {
   role       = aws_iam_role.node_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
-
-resource "local_file" "kubeconfig" {
-  content  = aws_eks_cluster.eks.kubeconfig
-  filename = pathexpand("~/.kube/config")
-}
